@@ -49,7 +49,7 @@ button{font:inherit;color:inherit}
 .main{flex:1;min-width:0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 110px}
 .wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
 .bottom{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);
-  display:grid;grid-template-columns:repeat(5,1fr);padding:6px max(6px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px))}
+  display:grid;grid-template-columns:repeat(4,1fr);padding:6px max(6px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px))}
 .bottom a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;border-radius:10px;text-decoration:none;color:var(--muted);font-size:.72rem;font-weight:600}
 .bottom a svg{width:22px;height:22px}
 .bottom a.on{color:var(--accent);background:var(--accent-soft)}
@@ -233,6 +233,24 @@ td.t{white-space:nowrap;font-weight:700;font-variant-numeric:tabular-nums}
 .more{display:flex;flex-direction:column;gap:8px}
 .more a{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);text-decoration:none;color:var(--fg);font-weight:700}
 .more a span{font-weight:500;color:var(--muted);font-size:.86rem;display:block}
+.steps3{display:flex;flex-direction:column;gap:8px}
+.stepb{display:flex;align-items:center;gap:12px;text-align:left;width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);cursor:pointer;text-decoration:none;color:var(--fg)}
+.stepb:hover{border-color:var(--accent)}
+.stepb b{display:block}
+.stepb span span{font-size:.84rem;color:var(--muted)}
+.stepb .sn{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:var(--accent);color:var(--on-accent)}
+.stepb.done{background:var(--good-soft);border-color:transparent}
+.stepb.done .sn{background:var(--good);color:var(--surface)}
+.learn{border:2px solid var(--accent)}
+.guide{background:var(--surface2);box-shadow:none}
+.ptiles{display:grid;grid-template-columns:1fr;gap:10px}
+@media (min-width:600px){.ptiles{grid-template-columns:1fr 1fr}}
+.ptile{display:flex;flex-direction:column;gap:6px;padding:18px;border-radius:var(--r);background:var(--surface);border:1.5px solid var(--line);text-decoration:none;color:var(--fg);box-shadow:var(--shadow)}
+.ptile:hover{border-color:var(--accent)}
+.ptile b{font-size:1.1rem}
+.ptile span{color:var(--muted);font-size:.9rem}
+.ptile.small-tile{padding:12px 14px;gap:2px}
+.ptile.small-tile b{font-size:1rem}
 hr{border:0;border-top:1px solid var(--line);margin:0}
 </style>
 
@@ -1536,7 +1554,8 @@ const ORDERED = GROUPS.flatMap(g => TOPICS.filter(t => t.group === g.id).sort((a
 
 /* ===== ULOŽENÍ ===== */
 const KEY = "eliska-trenazer-v1";
-function defState() { return { exam: "2027-06-01", status: {}, cards: {}, qok: {}, best: {}, oral: {}, mistakes: {}, notes: {}, general: "", enText: "", history: [], last: null }; }
+function defState() { return { exam: "2027-06-01", status: {}, cards: {}, qok: {}, best: {}, oral: {}, mistakes: {}, notes: {}, general: "", enText: "", history: [], last: null, steps: {}, focus: null, hideGuide: false }; }
+function markStep(tid, k) { if (!tid) return; S.steps[tid] = S.steps[tid] || {}; S.steps[tid][k] = 1; save(); }
 let S = defState();
 try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(defState(), JSON.parse(raw)); } catch (e) { }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { } }
@@ -1646,23 +1665,19 @@ const I = {
   gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'
 };
 const ico = n => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + I[n] + "</svg>";
-const NAV = [
-  ["domu", "Domů", "home"], ["otazky", "Otázky", "book"], ["kvizy", "Kvízy", "quiz"], ["karticky", "Kartičky", "cards"],
-  ["naostro", "Zkouška naostro", "mic"], ["anglictina", "Angličtina", "globe"], ["tahaky", "Taháky", "sheet"], ["poznamky", "Poznámky", "note"], ["nastaveni", "Nastavení a záloha", "gear"]
-];
+const NAV = [["domu", "Domů", "home"], ["otazky", "Otázky", "book"], ["procvic", "Procvičování", "quiz"], ["poznamky", "Poznámky", "note"]];
+const NAV2 = [["navod", "Návod", "more"], ["nastaveni", "Nastavení a záloha", "gear"]];
 function navKey(h) {
-  if (h.startsWith("otazka-")) return "otazky";
-  if (h === "kviz-hra") return "kvizy";
-  if (h === "karticky-hra") return "karticky";
+  if (h.startsWith("otazka-") || h === "anglictina" || h === "tahaky") return "otazky";
+  if (["kvizy", "kviz-hra", "karticky", "karticky-hra", "naostro"].includes(h)) return "procvic";
   return h;
 }
 function renderNav(h) {
   const k = navKey(h);
+  const a = n => '<a href="#' + n[0] + '" class="' + (k === n[0] ? "on" : "") + '">' + ico(n[2]) + n[1] + "</a>";
   $("#side").innerHTML = '<div class="brand">Cukrářský trenažér<small>Závěrečné zkoušky · cukrář</small></div>' +
-    NAV.map((n, i) => (i === 4 ? '<div class="sep"></div>' : "") + '<a href="#' + n[0] + '" class="' + (k === n[0] ? "on" : "") + '">' + ico(n[2]) + n[1] + "</a>").join("");
-  const mob = [["domu", "Domů", "home"], ["otazky", "Otázky", "book"], ["kvizy", "Kvízy", "quiz"], ["karticky", "Kartičky", "cards"], ["vice", "Více", "more"]];
-  const inMore = ["naostro", "anglictina", "tahaky", "poznamky", "nastaveni", "vice"].includes(k);
-  $("#bottom").innerHTML = mob.map(n => '<a href="#' + n[0] + '" class="' + ((k === n[0] || (n[0] === "vice" && inMore)) ? "on" : "") + '">' + ico(n[2]) + "<span>" + n[1] + "</span></a>").join("");
+    NAV.map(a).join("") + '<div class="sep"></div>' + NAV2.map(a).join("");
+  $("#bottom").innerHTML = NAV.map(n => '<a href="#' + n[0] + '" class="' + (k === n[0] ? "on" : "") + '">' + ico(n[2]) + "<span>" + n[1] + "</span></a>").join("");
 }
 
 /* ===== ROUTER ===== */
@@ -1670,7 +1685,7 @@ let TIMER = null;
 function stopTimer() { if (TIMER) { clearInterval(TIMER); TIMER = null; } }
 const ROUTES = {
   domu: vHome, otazky: vTopics, kvizy: vQuizPick, "kviz-hra": vQuizPlay, karticky: vCardsPick, "karticky-hra": vCardsPlay,
-  naostro: vExam, anglictina: vEnglish, tahaky: vCheat, poznamky: vNotes, nastaveni: vSettings, vice: vMore
+  naostro: vExam, anglictina: vEnglish, tahaky: vCheat, poznamky: vNotes, nastaveni: vSettings, procvic: vPractice, navod: vGuide
 };
 function route() {
   const h = (location.hash || "#domu").slice(1);
@@ -1692,48 +1707,109 @@ function toast(m) {
 /* ===== DOMŮ ===== */
 function daysLeft() { const d = new Date(S.exam + "T08:00:00"); return Math.ceil((d - new Date()) / 864e5); }
 function fmtDate(s) { try { return new Date(s + "T12:00:00").toLocaleDateString("cs-CZ", { day: "numeric", month: "long", year: "numeric" }); } catch (e) { return s; } }
+function nextTopic() {
+  if (S.focus && T(S.focus) && (S.status[S.focus] || 0) < 2) return T(S.focus);
+  return ORDERED.find(t => (S.status[t.id] || 0) < 2) || null;
+}
+function learnCard() {
+  const t = nextTopic();
+  if (!t) return `<section class="card stack learn"><p class="eyebrow">Uč se dál</p><h2>Všechny otázky máš označené jako „Umím“!</h2>
+    <p class="muted">Teď už jen opakuj ze všeho, ať to nezapomeneš.</p>
+    <div class="grid2"><button class="btn primary" data-act="quick">Kvíz ze všeho</button><button class="btn" data-act="cardsall">Kartičky ze všeho</button></div></section>`;
+  const st = S.steps[t.id] || {};
+  const step = (done, n, title, sub, attrs) => `<${attrs.href ? "a" : "button"} class="stepb ${done ? "done" : ""}" ${attrs.href ? `href="${attrs.href}"` : `data-act="${attrs.act}" data-t="${t.id}"`}>
+      <span class="sn">${done ? "✓" : n}</span><span><b>${title}</b><span>${sub}</span></span></${attrs.href ? "a" : "button"}>`;
+  return `<section class="card stack learn">
+    <p class="eyebrow">Uč se dál</p>
+    <div class="row" style="flex-wrap:nowrap"><span class="tnum">${t.num}</span><h2 style="min-width:0">${esc(t.title)}</h2></div>
+    <div class="steps3">
+      ${step(st.read, 1, "Přečti si látku", "na co se ptají a to nejdůležitější", { href: "#otazka-" + t.id })}
+      ${step(st.cards, 2, "Projdi kartičky", TC[t.id].length + " kartiček k téhle otázce", { act: "tcards" })}
+      ${step(st.quiz, 3, "Udělej kvíz", "ověř si, že to umíš", { act: "tquiz" })}
+    </div>
+    <div class="row" style="justify-content:space-between">
+      <button class="btn primary" data-act="learned" data-t="${t.id}">Umím ji – další otázka</button>
+      <select id="focussel" aria-label="Vybrat jinou otázku" style="width:auto;max-width:100%"><option value="">Vybrat jinou otázku…</option>${ORDERED.map(x => `<option value="${x.id}">${x.num}. ${esc(x.title)}</option>`).join("")}</select>
+    </div>
+  </section>`;
+}
+function guideCard() {
+  if (S.hideGuide) return "";
+  return `<section class="card stack guide">
+    <h2>Jak na to</h2>
+    <ul class="osnova">
+      <li><span><b>Uč se dál</b> (hned pod tímhle) tě provede: přečti si otázku → projdi kartičky → udělej kvíz. Pak klikni „Umím“ a jde se na další.</span></li>
+      <li><span><b>Otázky</b> – všechna témata podle čísel ze školy. Je tam i angličtina a taháky (teploty, zkratky).</span></li>
+      <li><span><b>Procvičování</b> – kvízy, kartičky a zkouška naostro z jedné otázky, ze skupiny nebo ze všeho.</span></li>
+      <li><span><b>Poznámky</b> – tvůj blok. Všechno se ukládá samo.</span></li>
+    </ul>
+    <div class="row"><button class="btn" data-act="hideguide">Rozumím, schovat</button><a class="btn ghost" href="#navod">Celý návod</a></div>
+  </section>`;
+}
 function vHome() {
   const days = daysLeft();
-  const unknown = ORDERED.flatMap(t => TC[t.id]).filter(c => S.cards[c.id] !== 3).length;
-  const mist = Object.keys(S.mistakes).length;
   const all = ORDERED.map(topicProgress);
   const overall = Math.round(all.reduce((a, b) => a + b, 0) / all.length);
-  const weakest = ORDERED.slice().sort((a, b) => topicProgress(a) - topicProgress(b))[0];
-  const last = S.last && T(S.last);
   view(`
-    <section class="hello stack">
-      <p class="eyebrow">Cukrářský trenažér</p>
+    <section class="hello stack" style="gap:6px">
       <h1>Ahoj Eliško!</h1>
-      <p class="muted">Všechno k závěrečkám na jednom místě. Vyber si, co dnes zkusíš – stačí i 10 minut denně.</p>
+      <p class="muted">${days > 0 ? `Do zkoušek ${plural(days, "zbývá", "zbývají", "zbývá")} <b class="num" style="color:var(--accent)">${days} ${plural(days, "den", "dny", "dní")}</b> (${esc(fmtDate(S.exam))}).` : "Hodně štěstí u zkoušek!"} Stačí i 10 minut denně.</p>
     </section>
-    <div class="card row" style="justify-content:space-between">
-      <div class="stack" style="gap:4px">
-        ${days > 0 ? `<div class="count"><b class="num">${days}</b><span>${plural(days, "den", "dny", "dní")} do zkoušek</span></div>` : `<div class="count"><b>Hodně štěstí!</b></div>`}
-        <p class="small muted">Zkoušky: ${esc(fmtDate(S.exam))}</p>
-      </div>
-      <a class="btn" href="#nastaveni">Změnit datum</a>
-    </div>
-    ${last ? `<a class="titem" href="#otazka-${last.id}"><span class="tnum">${last.num}</span><span><span class="ts">Pokračuj tam, kde jsi skončila</span><br><span class="tt">${esc(last.title)}</span></span><span class="pill accent">Otevřít</span></a>` : ""}
-    <section class="stack">
-      <h2>Co dnes?</h2>
-      <div class="qa">
-        <a href="#" data-act="quick"><b>Rychlý kvíz</b><span>10 otázek ze všeho</span></a>
-        <a href="#naostro"><b>Zkouška naostro</b><span>vylosuj si otázku</span></a>
-        <a href="#" data-act="cardsall"><b>Kartičky</b><span>${unknown} ještě neumíš</span></a>
-        <a href="#" data-act="mistakes"><b>Moje chyby</b><span>${mist ? mist + " " + plural(mist, "otázka", "otázky", "otázek") + " k opravě" : "zatím žádné"}</span></a>
-      </div>
-    </section>
+    ${guideCard()}
+    ${learnCard()}
     <section class="card stack">
       <div class="row" style="justify-content:space-between"><h2>Jak ti to jde</h2><span class="pill accent num">${overall} %</span></div>
       ${GROUPS.map(g => {
         const ts = ORDERED.filter(t => t.group === g.id);
         const p = Math.round(ts.reduce((a, t) => a + topicProgress(t), 0) / ts.length);
-        return `<div class="grp"><span><b>${esc(g.name)}</b> <span class="small muted">· ${ts.length} ${plural(ts.length, "otázka", "otázky", "otázek")}</span></span><span class="small num muted">${p} %</span><div class="bar"><i style="width:${p}%"></i></div></div>`;
+        const done = ts.filter(t => S.status[t.id] === 2).length;
+        return `<div class="grp"><span><b>${esc(g.name)}</b> <span class="small muted">· umíš ${done} z ${ts.length}</span></span><span class="small num muted">${p} %</span><div class="bar"><i style="width:${p}%"></i></div></div>`;
       }).join("")}
-      <p class="small muted">Pokrok se počítá z kartiček, které umíš, správně zodpovězených otázek v kvízech a toho, jak si otázku sama označíš.</p>
     </section>
-    ${weakest ? `<section class="card stack"><p class="eyebrow">Doporučuju zopakovat</p><a class="titem" href="#otazka-${weakest.id}" style="border:0;padding:0"><span class="tnum">${weakest.num}</span><span class="tt">${esc(weakest.title)}</span><span class="pill">${topicProgress(weakest)} %</span></a></section>` : ""}
     ${S.history.length ? `<section class="stack"><h2>Poslední výsledky</h2><div class="card stack" style="gap:8px">${S.history.slice(-4).reverse().map(histRow).join("<hr>")}</div></section>` : ""}
+    <div class="row small"><a href="#navod">Návod</a><span class="muted">·</span><a href="#nastaveni">Datum zkoušek a záloha</a></div>
+  `);
+}
+function vGuide() {
+  view(`
+    <a class="back" href="#domu">← Domů</a>
+    <header class="stack" style="gap:6px"><h1>Návod</h1><p class="muted">Kde co najdeš a jak se s tím učit.</p></header>
+    <section class="card stack"><h2>Nejjednodušší cesta</h2>
+      <ol class="steps body" style="padding:0">
+        <li><span>Na <b>Domů</b> je karta <b>Uč se dál</b> s jednou otázkou.</span></li>
+        <li><span>Klikni na <b>Přečti si látku</b>. Přečti si, na co se ptají, a „To nejdůležitější“. Celou látku si rozbal, až ji budeš potřebovat.</span></li>
+        <li><span>Vrať se a dej <b>Projdi kartičky</b>. Přečti otázku, odpověz si v hlavě, otoč a řekni po pravdě, jestli jsi to věděla.</span></li>
+        <li><span>Pak <b>Udělej kvíz</b>.</span></li>
+        <li><span>Když to jde, klikni <b>Umím ji – další otázka</b>. Hotové kroky mají fajfku.</span></li>
+      </ol></section>
+    <section class="card stack"><h2>Co je kde</h2>
+      <dl class="pairs">
+        <dt>Domů</dt><dd>Uč se dál, kolik toho už umíš, poslední výsledky.</dd>
+        <dt>Otázky</dt><dd>Všechna témata podle čísel ze školy. Nahoře je vyhledávání, angličtina a taháky (teploty pečení, poměry, zkratky, krémy).</dd>
+        <dt>Stránka otázky</dt><dd>Na co se ptají → to nejdůležitější → čísla k zapamatování → celá látka v rozbalovacích částech → tlačítka na procvičení → tvoje poznámky.</dd>
+        <dt>Procvičování</dt><dd><b>Kvíz</b> (možnosti, pravda/nepravda, seřazení postupu, vady), <b>Kartičky</b>, <b>Zkouška naostro</b> (vylosuješ otázku a odpovídáš nahlas) a <b>Moje chyby</b>.</dd>
+        <dt>Poznámky</dt><dd>Obecný blok a přehled poznámek u otázek.</dd>
+      </dl></section>
+    <section class="card stack"><h2>Dobré vědět</h2>
+      <ul class="osnova">
+        <li><span>Štítek ${ADDED} znamená, že to ve školních podkladech chybělo a je to doplněné. Ověř si to v sešitě.</span></li>
+        <li><span>Všechno se ukládá samo, ale jen v tomhle prohlížeči. Mobil a počítač mají pokrok každý zvlášť – přenést ho jde v <a href="#nastaveni">Nastavení</a> přes zálohu.</span></li>
+        <li><span>Na mobilu si stránku přidej na plochu (v prohlížeči „Přidat na plochu“) a otevírá se jako aplikace.</span></li>
+      </ul></section>
+    ${S.hideGuide ? `<button class="btn" data-act="showguide">Zase ukázat „Jak na to“ na Domů</button>` : ""}
+  `);
+}
+function vPractice() {
+  const mist = Object.keys(S.mistakes).length;
+  view(`
+    <header class="stack" style="gap:6px"><h1>Procvičování</h1><p class="muted">Vyber si, jak chceš procvičovat. Potom zvolíš, jestli jednu otázku, skupinu, nebo všechno.</p></header>
+    <div class="ptiles">
+      <a class="ptile" href="#kvizy"><b>Kvíz</b><span>Otázky s možnostmi, pravda/nepravda, seřazení postupu a přiřazení vad.</span></a>
+      <a class="ptile" href="#karticky"><b>Kartičky</b><span>Otázka – otočíš – odpověď. Řekneš si, jestli to umíš.</span></a>
+      <a class="ptile" href="#naostro"><b>Zkouška naostro</b><span>Vylosuješ si otázku a odpovídáš nahlas jako před komisí.</span></a>
+      <a class="ptile" href="#" data-act="mistakes"><b>Moje chyby</b><span>${mist ? mist + " " + plural(mist, "otázka, která se nepovedla", "otázky, které se nepovedly", "otázek, které se nepovedly") : "Zatím žádné – super."}</span></a>
+    </div>
+    ${S.history.length ? `<section class="stack"><h2>Poslední výsledky</h2><div class="card stack" style="gap:8px">${S.history.slice(-6).reverse().map(histRow).join("<hr>")}</div></section>` : ""}
   `);
 }
 function histRow(h) {
@@ -1760,6 +1836,10 @@ const SEARCH = TOPICS.map(t => ({ t, parts: flatText([t.title, t.zadani, t.osnov
 function vTopics() {
   view(`
     <header class="stack" style="gap:6px"><h1>Otázky</h1><p class="muted">Seřazené podle témat. Čísla jsou čísla otázek ze školy.</p></header>
+    <div class="grid2">
+      <a class="ptile small-tile" href="#anglictina"><b>Angličtina</b><span>slovíčka a popis výrobku</span></a>
+      <a class="ptile small-tile" href="#tahaky"><b>Taháky</b><span>teploty pečení, poměry, zkratky, krémy</span></a>
+    </div>
     <input type="search" id="search" placeholder="Hledat v látce (např. 45 °C, laskonky, inverze)" autocomplete="off">
     <div id="tl" class="stack"></div>
   `);
@@ -1812,7 +1892,7 @@ function renderSec(s, open) {
 }
 function hasAdded(t) { return JSON.stringify(t.sections).includes('"add":1'); }
 function vTopic(t) {
-  S.last = t.id; save();
+  S.last = t.id; markStep(t.id, "read");
   const st = S.status[t.id] || 0;
   const idx = ORDERED.indexOf(t), prev = ORDERED[idx - 1], next = ORDERED[idx + 1];
   view(`
@@ -1826,14 +1906,14 @@ function vTopic(t) {
     </header>
     <div class="zad"><p class="eyebrow">Co se tě zeptají</p><ul>${t.zadani.map(z => `<li>${esc(z)}</li>`).join("")}</ul></div>
     <section class="card stack">
-      <h2>To nejdůležitější</h2>
+      <div class="row" style="justify-content:space-between"><h2>To nejdůležitější</h2><button class="btn ghost" data-act="toprac">Procvičit ↓</button></div>
       <ul class="osnova">${t.osnova.map(o => `<li><span>${esc(o)}</span></li>`).join("")}</ul>
       <div class="stack" style="gap:8px"><p class="eyebrow">Čísla k zapamatování</p><div class="chips">${t.key.map(k => `<span class="chip">${esc(k)}</span>`).join("")}</div></div>
     </section>
     <div class="row" style="justify-content:space-between"><h2>Celá látka</h2><button class="btn ghost" data-act="expand">Rozbalit vše</button></div>
     ${hasAdded(t) ? `<p class="small muted">Části označené ${ADDED} ve školních podkladech chyběly a doplnil jsem je podle běžné praxe. Ověř si je v sešitě nebo u učitelky.</p>` : ""}
     <div class="stack" style="gap:8px">${t.sections.map(s => renderSec(s)).join("")}</div>
-    <section class="card stack">
+    <section class="card stack" id="prac">
       <h2>Procvič si tuhle otázku</h2>
       <div class="grid2">
         <button class="btn primary" data-act="tquiz" data-t="${t.id}">Kvíz (${TQ[t.id].length} otázek)</button>
@@ -1871,6 +1951,7 @@ function scopeButtons(kind) {
 function vQuizPick() {
   if (PK.scope === "chyby" && !Object.keys(S.mistakes).length) PK.scope = "all";
   view(`
+    <a class="back" href="#procvic">← Procvičování</a>
     <header class="stack" style="gap:6px"><h1>Kvízy</h1><p class="muted">Výběr z možností, pravda/nepravda, seřazení postupu a přiřazení vad k příčinám.</p></header>
     <section class="stack"><p class="eyebrow">Z čeho</p>${scopeButtons("q")}</section>
     <section class="stack"><p class="eyebrow">Kolik otázek</p>
@@ -1915,7 +1996,7 @@ function vQuizPlay() {
   if (q.type === "mc" || q.type === "tf") {
     body = `<div class="opts">${q.opts.map((o, i) => `<button class="opt" data-act="ans" data-i="${i}"><span class="k">${q.type === "tf" ? (i ? "N" : "P") : "ABCD"[i]}</span><span>${esc(o)}</span></button>`).join("")}</div>`;
   } else if (q.type === "match") {
-    body = `<div class="match">${q.pairs.map((p, i) => `<div class="m"><b>${esc(p[0])}</b><select id="m${i}" aria-label="Příčina"><option value="">— vyber příčinu —</option>${q.choices.map(c => `<option>${esc(c)}</option>`).join("")}</select><span class="fix" id="mf${i}" hidden></span></div>`).join("")}</div>
+    body = `<div class="match">${q.pairs.map((p, i) => `<div class="m"><b>${esc(p[0])}</b><select id="m${i}" aria-label="Příčina"><option value="">— vyber příčinu —</option>${q.choices.map((c, k) => `<option value="${k}">${esc(c)}</option>`).join("")}</select><span class="fix" id="mf${i}" hidden></span></div>`).join("")}</div>
       <button class="btn primary" data-act="checkmatch">Zkontrolovat</button>`;
   } else if (q.type === "order") {
     body = `<p class="small muted">Klepej na kroky v pořadí, jak jdou po sobě.</p><div id="ord"></div>`;
@@ -1935,10 +2016,9 @@ function vQuizPlay() {
 }
 function renderOrder() {
   const q = QZ.list[QZ.i];
-  const left = q.shuf.filter(x => !q.picked.includes(x));
   $("#ord").innerHTML = `
     ${q.picked.length ? `<ol class="steps body" style="padding:0;margin-bottom:12px">${q.picked.map(x => `<li><span>${esc(x)}</span></li>`).join("")}</ol>` : ""}
-    <div class="opts">${left.map(x => `<button class="opt" data-act="ord" data-v="${esc(x)}"><span class="k">+</span><span>${esc(x)}</span></button>`).join("")}</div>
+    <div class="opts">${q.shuf.map((x, k) => q.picked.includes(x) ? "" : `<button class="opt" data-act="ord" data-v="${k}"><span class="k">+</span><span>${esc(x)}</span></button>`).join("")}</div>
     ${q.picked.length && !QZ.done ? `<button class="btn ghost" data-act="ordreset" style="margin-top:8px">Začít znovu</button>` : ""}`;
 }
 function record(ok) {
@@ -1959,6 +2039,7 @@ function quizResult() {
   if (!QZ.saved) {
     QZ.saved = true;
     S.best[QZ.scope] = Math.max(S.best[QZ.scope] || 0, pct);
+    if (QZ.scope.startsWith("t:")) markStep(QZ.scope.slice(2), "quiz");
     S.history.push({ d: Date.now(), s: QZ.title, sc, n, k: "quiz" });
     S.history = S.history.slice(-40); save();
   }
@@ -1992,6 +2073,7 @@ let CS = null;
 function vCardsPick() {
   if (PK.scope === "chyby") PK.scope = "all";
   view(`
+    <a class="back" href="#procvic">← Procvičování</a>
     <header class="stack" style="gap:6px"><h1>Kartičky</h1><p class="muted">Přečti si otázku, zkus si odpovědět v hlavě a otoč kartičku. Pak řekni po pravdě, jestli jsi to věděla.</p></header>
     <section class="stack"><p class="eyebrow">Z čeho</p>${scopeButtons("c")}</section>
     <label class="check ${CPK.only ? "on" : ""}" id="onlyl"><input type="checkbox" id="only" ${CPK.only ? "checked" : ""}><span><b>Jen kartičky, které ještě neumím</b><br><span class="small muted">Ty, které umíš, se přeskočí.</span></span></label>
@@ -2015,6 +2097,7 @@ function vCardsPlay() {
   if (!CS) { go("karticky"); return; }
   const n = CS.list.length;
   if (CS.i >= n) {
+    if (CS.scope.startsWith("t:")) markStep(CS.scope.slice(2), "cards");
     view(`
       <a class="back" href="#karticky">← Kartičky</a>
       <section class="card stack">
@@ -2048,6 +2131,7 @@ let EX = null;
 function vExam() {
   if (!EX || !EX.t) {
     view(`
+      <a class="back" href="#procvic">← Procvičování</a>
       <header class="stack" style="gap:6px"><h1>Zkouška naostro</h1><p class="muted">Jako u ústní zkoušky: vylosuješ si otázku, připravíš se a odpovíš nahlas. Pak si odškrtáš, co jsi řekla.</p></header>
       <section class="card stack">
         <ol class="steps body" style="padding:0">
@@ -2112,6 +2196,7 @@ function vEnglish() {
       <textarea id="entext" lang="en" style="min-height:220px" placeholder="My product is …">${esc(S.enText)}</textarea><p class="small muted">Ukládá se samo.</p>`;
   }
   view(`
+    <a class="back" href="#otazky">← Otázky</a>
     <header class="stack" style="gap:6px"><h1>Angličtina</h1><p class="muted">U zkoušky budeš možná popisovat svůj výrobek anglicky: z čeho je, jak se dělá a jak chutná.</p></header>
     <div class="grid2"><button class="btn" data-act="enquiz">Kvíz ze slovíček</button><button class="btn" data-act="encards">Kartičky ze slovíček</button></div>
     <div class="seg">${tabs.map(t => `<button data-act="entab" data-v="${t[0]}" class="${ENTAB === t[0] ? "on" : ""}">${t[1]}</button>`).join("")}</div>
@@ -2132,6 +2217,7 @@ function renderVocab(q) {
 /* ===== TAHÁKY ===== */
 function vCheat() {
   view(`
+    <a class="back" href="#otazky">← Otázky</a>
     <header class="stack" style="gap:6px"><h1>Taháky</h1><p class="muted">Věci, které se opakují napříč otázkami – na jednom místě.</p></header>
     <div class="grid2"><button class="btn" data-act="gquiz">Kvíz ze zkratek a pojmů</button><button class="btn" data-act="gcards">Kartičky ze zkratek a pojmů</button></div>
     <div class="stack" style="gap:8px">
@@ -2184,21 +2270,12 @@ function vSettings() {
       <button class="btn" data-act="reset" id="resetb">Smazat pokrok</button></section>
   `);
 }
-function vMore() {
-  view(`
-    <header class="stack" style="gap:6px"><h1>Více</h1></header>
-    <div class="more">
-      <a href="#naostro"><span>Zkouška naostro<span>vylosuj si otázku a odpověz nahlas</span></span>→</a>
-      <a href="#anglictina"><span>Angličtina<span>slovíčka a popis výrobku</span></span>→</a>
-      <a href="#tahaky"><span>Taháky<span>teploty, poměry, zkratky, krémy</span></span>→</a>
-      <a href="#poznamky"><span>Poznámky<span>tvůj blok</span></span>→</a>
-      <a href="#nastaveni"><span>Nastavení a záloha<span>datum zkoušek, přenos mezi zařízeními</span></span>→</a>
-    </div>
-  `);
-}
-
 /* ===== AKCE ===== */
 const ACT = {
+  learned(b) { S.status[b.dataset.t] = 2; S.focus = null; save(); toast("Super! Jdeme na další otázku."); route(); },
+  hideguide() { S.hideGuide = true; save(); route(); },
+  showguide() { S.hideGuide = false; save(); go("domu"); },
+  toprac() { const el = $("#prac"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); },
   quick() { startQuiz("all", 10); },
   cardsall() { startCards("all", true); },
   mistakes() { if (!Object.keys(S.mistakes).length) { toast("Zatím nemáš žádné chyby."); return; } startQuiz("chyby", 0); },
@@ -2221,7 +2298,7 @@ const ACT = {
   checkmatch() {
     if (QZ.done) return;
     const q = QZ.list[QZ.i];
-    const vals = q.pairs.map((p, i) => $("#m" + i).value);
+    const vals = q.pairs.map((p, i) => { const v = $("#m" + i).value; return v === "" ? "" : q.choices[+v]; });
     if (vals.some(v => !v)) { toast("Vyber příčinu u všech vad."); return; }
     let ok = true;
     q.pairs.forEach((p, i) => {
@@ -2234,7 +2311,7 @@ const ACT = {
   },
   ord(b) {
     if (QZ.done) return;
-    const q = QZ.list[QZ.i]; q.picked.push(b.dataset.v);
+    const q = QZ.list[QZ.i]; q.picked.push(q.shuf[+b.dataset.v]);
     if (q.picked.length === q.items.length) {
       const ok = q.picked.join("|") === q.items.join("|");
       QZ.done = true; renderOrder();
@@ -2296,6 +2373,7 @@ document.addEventListener("click", e => {
 document.addEventListener("change", e => {
   const el = e.target;
   if (el.id === "tsel" && el.value) { PK.scope = el.value; route(); }
+  if (el.id === "focussel" && el.value) { S.focus = el.value; if ((S.status[el.value] || 0) === 2) S.status[el.value] = 1; save(); route(); }
   if (el.id === "exsel" && el.value) { EX = { t: el.value, phase: "answer", sec: 0, checked: {} }; route(); }
   if (el.id === "exam" && el.value) { S.exam = el.value; save(); toast("Datum uloženo."); }
   if (el.id === "only") { CPK.only = el.checked; $("#onlyl").classList.toggle("on", el.checked); }
